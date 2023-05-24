@@ -1,7 +1,7 @@
 # 2019-2020 Sorbonne University
 # In this version of imunes we added a full integration of emulation of 
 # Linux namespaces and CISCO routers, saving of parameters, VLANs, WiFi 
-# emulation and other features
+# emulation and other features
 # This work was developed by Benadji Hanane and Oulad Said Chawki
 # Supervised and maintained by Naceur Malouch - LIP6/SU
 #
@@ -923,7 +923,7 @@ set type [nodeType $node]
 if {$type == "routeur"} {
 
 	runConfOnNodeR $node
-} elseif {$type == "pcn"} {
+} elseif {$type == "pcn" || $type == "pclone"} {
     startIfcsNodeN $node 
     runConfOnNodeN $node
 } elseif {$type == "wifiAP"} {

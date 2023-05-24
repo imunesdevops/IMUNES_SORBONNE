@@ -1,7 +1,7 @@
 # 2019-2020 Sorbonne University
 # In this version of imunes we added a full integration of emulation of 
 # Linux namespaces and CISCO routers, saving of parameters, VLANs, WiFi 
-# emulation and other features
+# emulation and other features
 # This work was developed by Benadji Hanane and Oulad Said Chawki
 # Supervised and maintained by Naceur Malouch - LIP6/SU
 #
@@ -291,7 +291,7 @@ proc ApplyBatchToGUI { } {
 			}
 
             # Save the batch modifications for the PC Namespaces
-              if { $type == "pcn" && $oper_mode == "exec"} {
+              if { $type == "pcn" || $type == "pclone" && $oper_mode == "exec"} {
 
 		
 				
@@ -777,7 +777,7 @@ if {[file exist "$dynacurdir/Dynamips/$eid/lab/config_routeur_$nom_cisco"] == 1}
 			}
 
             # Save the batch modifications for the PC Namespaces
-              if { $type == "pcn" && $oper_mode == "exec" } {
+              if { $type == "pcn" || $type == "pclone" && $oper_mode == "exec" } {
 
 		
 				

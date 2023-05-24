@@ -186,6 +186,7 @@ set selectedIfc ""
 array set nodeNamingBase {
     pc pc
     pcn MyPC
+    pclone Pclone
     routeur c7200_
     wifiAP AP
     wifiSTA STA

@@ -121,6 +121,7 @@ lib/imunes/nodes/lanswitch.tcl
 lib/imunes/nodes/localnodes.tcl
 lib/imunes/nodes/nat64.tcl
 lib/imunes/nodes/nouveauPc.tcl
+lib/imunes/nodes/Pclone.tcl
 lib/imunes/nodes/nouveauRouteur.tcl
 lib/imunes/nodes/packgen.tcl
 lib/imunes/nodes/pc.tcl
