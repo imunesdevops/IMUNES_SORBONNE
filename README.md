@@ -230,7 +230,6 @@ Visit our [wiki](https://github.com/imunes/imunes/wiki) for more:
  - [Scripting IMUNES experiments](https://github.com/imunes/imunes/wiki#scripting-imunes-experiments)
  - [Troubleshooting](https://github.com/imunes/imunes/wiki#troubleshooting)
 
-For additional information visit our web site:
+For additional information visit the official IMUNES web site:
         http://imunes.net/
-# PRES_DevOPS
-# PRES_DevOPS
+You can also read the quickstart guide here : https://github.com/imunesdevops/IMUNES_SORBONNE/blob/main/Quick_Start_Guide_Imunes-Sorbonne..pdf
