@@ -220,9 +220,9 @@ proc $MODULE.layer {} {
 #   * layer -- set to VIMAGE
 #****
 
-# modification for namespace
+# modification for namespaceclone
 proc $MODULE.virtlayer {} {
-    return NAMESPACE
+    return NAMESPACECLONE
 }
 
 #****f* Pclone.tcl/Pclone.cfggen

@@ -52,10 +52,14 @@ proc writeDataToNodeFile { node path data } {
 proc execCmdNode { node cmd } {
     upvar 0 ::cf::[set ::curcfg]::eid eid
     set node_id1 "$eid.$node"
-    # modification for namespace
+    # modification for namespace and namespaceclone
     # modification for wifi
     if {[[typemodel $node].virtlayer] == "NAMESPACE" || [[typemodel $node].virtlayer] == "WIFIAP" || [[typemodel $node].virtlayer] == "WIFISTA"  } {
     catch {eval [concat "nexec ip netns exec " $node_id1 $cmd] } output
+
+    return $output
+    } elseif {[[typemodel $node].virtlayer] == "NAMESPACECLONE"} {
+	catch {eval [concat "nexec pclone exec " $node_id1 $cmd] } output
 
     return $output
     } else {
@@ -158,13 +162,15 @@ global dynacurdir
     if { $wiresharkComm != "" } {
                   if {[[typemodel $node].virtlayer] == "NETGRAPH"} { 
 				catch "exec wireshark -ki $eid-$node-$ifc -o gui.window_title:$ifc@[getNodeName $node] &"
-      		 } elseif {[[typemodel $node].virtlayer] == "NAMESPACE" || [[typemodel $node].virtlayer] == "WIFIAP" || [[typemodel $node].virtlayer] == "WIFISTA" } { 
+      		 } elseif {[[typemodel $node].virtlayer] == "NAMESPACECLONE" || [[typemodel $node].virtlayer] == "NAMESPACE" || [[typemodel $node].virtlayer] == "WIFIAP" || [[typemodel $node].virtlayer] == "WIFISTA" } { 
                         if {([[typemodel $node].virtlayer] == "WIFIAP" || [[typemodel $node].virtlayer] == "WIFISTA") && $ifc == "hwsim0"} {
      			            catch "exec ip link set $ifc up"
       			            catch "exec wireshark -ki $ifc -o gui.window_title:$ifc@[getNodeName $node] &"
-                        } else {
-      			                catch "exec ip netns exec $node_id1 wireshark -ki $ifc -o gui.window_title:$ifc@[getNodeName $node] &"
-						}
+                        } elseif {[[typemodel $node].virtlayer] == "NAMESPACECLONE"} {
+      			                catch "exec pclone exec $node_id1 wireshark -ki $ifc -o gui.window_title:$ifc@[getNodeName $node] &"
+						}else{
+	catch "exec ip netns exec $node_id1 wireshark -ki $ifc -o gui.window_title:$ifc@[getNodeName $node] &"
+}
                   
                  } elseif { [[typemodel $node].virtlayer] == "DYNAMIPS" } {
                         if { $ifc == "lo" } { 
@@ -239,7 +245,7 @@ proc startXappOnNode { node app } {
 #   * node -- virtual node id
 #   * ifc -- virtual node interface
 #****
-# modification for namespace and cisco router
+# modification for namespace/namespacepclone and cisco router
 # to add Tcpdump to namespace PC and cisco router
 proc startTcpdumpOnNodeIfc { node ifc } {
 
@@ -265,7 +271,7 @@ proc startTcpdumpOnNodeIfc { node ifc } {
       
 }
           
-    } elseif { [[typemodel $node].virtlayer] == "NAMESPACE" || [[typemodel $node].virtlayer] == "WIFIAP" || [[typemodel $node].virtlayer] == "WIFISTA"} {
+    } elseif { [[typemodel $node].virtlayer] == "NAMESPACECLONE" || [[typemodel $node].virtlayer] == "NAMESPACE" || [[typemodel $node].virtlayer] == "WIFIAP" || [[typemodel $node].virtlayer] == "WIFISTA"} {
         spawnShell $node "tcpdump -ni $ifc"
 }
 
@@ -296,6 +302,9 @@ proc existingShells { shells node } {
          #Modification for wifi
         if {[[typemodel $node].virtlayer] == "NAMESPACE" || [[typemodel $node].virtlayer] == "WIFIAP" || [[typemodel $node].virtlayer] == "WIFISTA" } {
         set cmd "ip netns exec $node_id1 which $shell"
+	
+	} elseif { [[typemodel $node].virtlayer] == "NAMESPACECLONE" } {
+        set cmd "pclone exec $node_id1 which $shell"
 
         } elseif { [[typemodel $node].virtlayer] == "DYNAMIPS" } {
         set cmd "which $shell"
@@ -323,7 +332,7 @@ proc existingShells { shells node } {
 #   * node -- node id of the node for which the shell is spawned.
 #   * cmd -- the path to the shell.
 #****
-# modification for namespace and cisco router
+# modification for namespace/namespacepclone and cisco router
 
 proc spawnShell { node cmd } {
     upvar 0 ::cf::[set ::curcfg]::eid eid
@@ -350,7 +359,7 @@ if {[[typemodel $node].virtlayer] == "DYNAMIPS"} {
     -T "IMUNES: [getNodeName $node] (console) [string trim [lindex [split $cmd /] end] ']" \
     -e "$cmd" 2> /dev/null &
 }
-    } elseif { [[typemodel $node].virtlayer] == "NAMESPACE" || [[typemodel $node].virtlayer] == "WIFIAP" || [[typemodel $node].virtlayer] == "WIFISTA"} {
+    } elseif { [[typemodel $node].virtlayer] == "NAMESPACECLONE" || [[typemodel $node].virtlayer] == "NAMESPACE" || [[typemodel $node].virtlayer] == "WIFIAP" || [[typemodel $node].virtlayer] == "WIFISTA"} {
     set wifi [lindex $cmd 2]
 
     if {$wifi == "hwsim0"} {
@@ -359,6 +368,10 @@ if {[[typemodel $node].virtlayer] == "DYNAMIPS"} {
     -T "IMUNES: [getNodeName $node] (console) [string trim [lindex [split $cmd /] end] ']" \
     -e "$cmd" 2> /dev/null &
 
+   } elseif { [[typemodel $node].virtlayer] == "NAMESPACECLONE"} {
+    nexec xterm -sb -rightbar \
+    -T "IMUNES: [getNodeName $node] (console) [string trim [lindex [split $cmd /] end] ']" \
+    -e "pclone exec $node_id1 $cmd" 2> /dev/null &
    } else {
     nexec xterm -sb -rightbar \
     -T "IMUNES: [getNodeName $node] (console) [string trim [lindex [split $cmd /] end] ']" \
@@ -1097,7 +1110,7 @@ proc configureICMPoptions { node } {
 
     pipesExec "docker exec $eid.$node sh -c \'$cmds\'" "hold"
 }
-# modification for namespace and cisco router
+# modification for namespace/namespaceclone and cisco router
 proc createLinkBetween { lnode1 lnode2 ifname1 ifname2 } {
     upvar 0 ::cf::[set ::curcfg]::eid eid
     set node_id1 "$eid.$lnode1"
@@ -1186,6 +1199,87 @@ proc createLinkBetween { lnode1 lnode2 ifname1 ifname2 } {
 
 
     }
+    NAMESPACE-NAMESPACECLONE {
+
+       set hostIfc1 "$eid-$lname1-$ifname1"
+       set hostIfc2 "$eid-$lname2-$ifname2"
+     
+
+        # connect two interface of two namespace node using ip link
+        exec ip link add name "$hostIfc1" type veth peer name "$hostIfc2" 
+        #assign interface to namespace nodes
+        exec ip link set "$hostIfc1" netns $node_id1 
+        exec ip link set "$hostIfc2" netns $node_id2 
+        # change the name of interface
+        catch "exec ip netns exec $node_id1 ip link set $hostIfc1 name $ifname1"
+        catch "exec pclone exec $node_id2 ip link set $hostIfc2 name $ifname2"
+     
+
+       # MAC address Namespace
+
+       catch "exec ip netns exec $node_id1 ip link set $ifname1 address $ether1"
+       catch "exec ip netns exec $node_id2 ip link set $ifname2 address $ether2"
+	  # activate ethernet interface of namespace node
+        catch "exec ip netns exec $node_id1 ip link set $ifname1 up"
+        catch "exec pclone exec $node_id2 ip link set $ifname2 up"
+   
+
+
+
+    }
+    NAMESPACECLONE-NAMESPACE {
+
+       set hostIfc1 "$eid-$lname1-$ifname1"
+       set hostIfc2 "$eid-$lname2-$ifname2"
+     
+
+        # connect two interface of two namespace node using ip link
+        exec ip link add name "$hostIfc1" type veth peer name "$hostIfc2" 
+        #assign interface to namespace nodes
+        exec ip link set "$hostIfc1" netns $node_id1 
+        exec ip link set "$hostIfc2" netns $node_id2 
+        # change the name of interface
+        catch "exec pclone exec $node_id1 ip link set $hostIfc1 name $ifname1"
+        catch "exec ip netns exec $node_id2 ip link set $hostIfc2 name $ifname2"
+     
+
+       # MAC address Namespace
+
+       catch "exec pclone exec $node_id1 ip link set $ifname1 address $ether1"
+       catch "exec ip netns exec $node_id2 ip link set $ifname2 address $ether2"
+	  # activate ethernet interface of namespace node
+        catch "exec pclone exec $node_id1 ip link set $ifname1 up"
+        catch "exec ip netns exec $node_id2 ip link set $ifname2 up"
+  
+    }	
+    NAMESPACECLONE-NAMESPACECLONE {
+
+       set hostIfc1 "$eid-$lname1-$ifname1"
+       set hostIfc2 "$eid-$lname2-$ifname2"
+     
+
+        # connect two interface of two namespaceclone node using ip link
+        exec ip link add name "$hostIfc1" type veth peer name "$hostIfc2" 
+        #assign interface to namespaceclone nodes
+        exec ip link set "$hostIfc1" netns $node_id1 
+        exec ip link set "$hostIfc2" netns $node_id2 
+        # change the name of interface
+        catch "exec pclone exec $node_id1 ip link set $hostIfc1 name $ifname1"
+        catch "exec pclone exec $node_id2 ip link set $hostIfc2 name $ifname2"
+     
+
+       # MAC address Namespaceclone
+
+       catch "exec pclone exec $node_id1 ip link set $ifname1 address $ether1"
+       catch "exec pclone exec $node_id2 ip link set $ifname2 address $ether2"
+	  # activate ethernet interface of namespaceclone node
+        catch "exec pclone exec $node_id1 ip link set $ifname1 up"
+        catch "exec pclone exec $node_id2 ip link set $ifname2 up"
+   
+
+
+
+    }
     VIMAGE-VIMAGE {
 
         set lnode1Ns [createNetNs $lnode1]
@@ -1247,6 +1341,38 @@ proc createLinkBetween { lnode1 lnode2 ifname1 ifname2 } {
     
       }
 
+    NAMESPACECLONE-VIMAGE {
+    # the case of linux namespaceclone with vimage        
+        set lnode1Ns [createNetNs $lnode2]
+       # set hostIfc1 "veth.$ifname1.$lnode1.$eid" 
+        set hostIfc1 "$eid-$lname1-$ifname1" 
+        set hostIfc2 "v${ifname2}pn${lnode1Ns}"
+    #    exec ip link del $hostIfc1
+
+        # connect two interface of namespaceclone and vimage node using ip link
+        exec ip link add name "$hostIfc2" type veth peer name "$hostIfc1"
+
+
+	#assign interface to namespaceclone node
+        exec ip link set "$hostIfc1" netns $node_id1  
+        setIfcNetNs $lnode2 $hostIfc2 $ifname2
+        #docker pc
+        exec nsenter -n -t $lnode1Ns ip link set dev "$ifname2" \
+        address "$ether2"
+       
+        # change the name of interface
+        
+        catch "exec pclone exec $node_id1 ip link set $hostIfc1 name $ifname1"
+       # MAC address Namespaceclone
+
+       catch "exec pclone exec $node_id1 ip link set $ifname1 address $ether1"
+  	# activate ethernet interface of namespaceclone node 
+        catch "exec pclone exec $node_id1 ip link set $ifname1 up"
+       
+        exec pclone del $lnode1Ns
+
+    
+      }
     VIMAGE-NAMESPACE {
       # the case of vimage with linux namespace         
         set lnode1Ns [createNetNs $lnode1]
@@ -1276,6 +1402,37 @@ proc createLinkBetween { lnode1 lnode2 ifname1 ifname2 } {
         exec ip netns del $lnode1Ns
     
         }
+
+	VIMAGE-NAMESPACEClONE {
+      # the case of vimage with linux namespaceclone         
+        set lnode1Ns [createNetNs $lnode1]
+        set hostIfc1 "v${ifname1}pn${lnode1Ns}"
+      #  set hostIfc2 "veth.$ifname2.$lnode2.$eid"
+        set hostIfc2 "$eid-$lname2-$ifname2"
+      #  exec ip link del $hostIfc2
+
+        exec ip link add name "$hostIfc1" type veth peer name "$hostIfc2"
+ 
+        exec ip link set "$hostIfc2" netns $node_id2  
+        setIfcNetNs $lnode1 $hostIfc1 $ifname1
+        #docker pc
+        exec nsenter -n -t $lnode1Ns ip link set dev "$ifname1" \
+        address "$ether1"
+       
+       # change the name of interface
+        catch "exec pclone exec $node_id2 ip link set $hostIfc2 name $ifname2"
+
+       # MAC address Namespace
+
+       catch "exec pclone exec $node_id2 ip link set $ifname2 address $ether2"
+       
+	# activate ethernet interface of namespace node   
+        catch "exec pclone exec $node_id2 ip link set $ifname2 up"
+    
+        exec pclone del $lnode1Ns
+    
+        }
+
  WIFIAP-VIMAGE {
     # the case of linux namespace with vimage        
         set lnode1Ns [createNetNs $lnode2]
@@ -1371,6 +1528,39 @@ WIFIAP-NAMESPACE {
 
 
     }
+WIFIAP-NAMESPACECLONE {
+
+     
+       set hostIfc1 "$eid-$lname1-$ifname1"
+       set hostIfc2 "$eid-$lname2-$ifname2"
+      
+
+        # connect two interface of wifiAP and namespaceclone node using ip link
+        exec ip link add name "$hostIfc1" type veth peer name "$hostIfc2" 
+        #assign interface to WIFIAP node
+        exec ip link set "$hostIfc1" netns $node_id1 
+        #assign interface to namespaceclone node
+        exec ip link set "$hostIfc2" netns $node_id2 
+        # change the name of interface
+        catch "exec pclone exec $node_id1 ip link set $hostIfc1 name $ifname1"
+        catch "exec pclone exec $node_id2 ip link set $hostIfc2 name $ifname2"
+        #catch "exec ip netns exec $node ip addr add $adresse dev $ifname1"
+	#catch "exec ip netns exec $node ip addr add $adresse dev $ifname1"
+
+       # MAC address wifiAP
+
+       catch "exec pclone exec $node_id1 ip link set $ifname1 address $ether1"
+      # MAC address namespaceclone
+
+       catch "exec pclone exec $node_id2 ip link set $ifname2 address $ether2"
+	# activate ethernet interface of namespaceclone node
+        catch "exec pclone exec $node_id1 ip link set $ifname1 up"
+        catch "exec pclone exec $node_id2 ip link set $ifname2 up"
+   
+
+
+
+    }
 
 NAMESPACE-WIFIAP {
 
@@ -1400,6 +1590,39 @@ NAMESPACE-WIFIAP {
 	# activate ethernet interface of namespace and wifi AP node
         catch "exec ip netns exec $node_id1 ip link set $ifname1 up"
         catch "exec ip netns exec $node_id2 ip link set $ifname2 up"
+   
+
+
+
+    }
+NAMESPACECLONE-WIFIAP {
+
+     
+       set hostIfc1 "$eid-$lname1-$ifname1"
+       set hostIfc2 "$eid-$lname2-$ifname2"
+      
+
+        # connect two interface of wifiAP and namespaceclone node using ip link
+        exec ip link add name "$hostIfc1" type veth peer name "$hostIfc2" 
+        #assign interface to namespaceclone node
+        exec ip link set "$hostIfc1" netns $node_id1 
+        #assign interface to wifiap node
+        exec ip link set "$hostIfc2" netns $node_id2 
+        # change the name of interface
+        catch "exec pclone exec $node_id1 ip link set $hostIfc1 name $ifname1"
+        catch "exec pclone exec $node_id2 ip link set $hostIfc2 name $ifname2"
+        #catch "exec ip netns exec $node ip addr add $adresse dev $ifname1"
+	#catch "exec ip netns exec $node ip addr add $adresse dev $ifname1"
+
+       # MAC address namespaceclone
+
+       catch "exec pclone exec $node_id1 ip link set $ifname1 address $ether1"
+      # MAC address wifiAP
+
+       catch "exec pclone exec $node_id2 ip link set $ifname2 address $ether2"
+	# activate ethernet interface of namespace and wifi AP node
+        catch "exec pclone exec $node_id1 ip link set $ifname1 up"
+        catch "exec pclone exec $node_id2 ip link set $ifname2 up"
    
 
 
@@ -1535,11 +1758,21 @@ WIFIAP-DYNAMIPS {
     	# we call fonction which add node to bridge
         addNodeIfcToBridgeN $lname1 $ifname1 $lnode2 $ifname2 $ether2
         }
+    NETGRAPH-NAMESPACECLONE {
+	# the case of netgraph with namespaceclone
+    	# we call the function which adds node to bridge
+        addNodeIfcToBridgeNP $lname1 $ifname1 $lnode2 $ifname2 $ether2
+        }
 
     NAMESPACE-NETGRAPH {
 	# the case of  namespace with netgraph 
     	# we call fonction which add node to bridge
         addNodeIfcToBridgeN $lname2 $ifname2 $lnode1 $ifname1 $ether1
+        }
+    NAMESPACECLONE-NETGRAPH {
+	# the case of  namespace with netgraph 
+    	# we call fonction which add node to bridge
+        addNodeIfcToBridgeNP $lname2 $ifname2 $lnode1 $ifname1 $ether1
         }
 
     DYNAMIPS-DYNAMIPS {
@@ -1663,6 +1896,39 @@ WIFIAP-DYNAMIPS {
     
     }
 
+    DYNAMIPS-NAMESPACECLONE {
+    # the case of dynamips with namespaceclone
+        
+      #  set hostIfc1 "veth.$lnode2.$lnode1.$eid"
+      #  set hostIfc2 "veth.$ifname2.$lnode2.$eid"
+      set hostIfc1 "$eid-$lnode2-$lnode1"
+      set hostIfc2 "$eid-$ifname2-$lnode2"
+    #    exec ip link del $hostIfc1
+    #    exec ip link del $hostIfc2
+
+        exec ip link add name "$hostIfc1" type veth peer name "$hostIfc2"
+        exec ip link set dev $hostIfc1 up
+       # edit cisco router configuration file
+        verifierFichier_Dynamips $lnode1
+        set fp [open "$dynacurdir/Dynamips/$eid/node/$lnode1.txt" a]
+        puts $fp "$ifname1 = NIO_linux_eth:$hostIfc1"
+        close $fp 
+
+           
+        #move interface to namespace node
+        exec ip link set "$hostIfc2" netns $node_id2  
+
+        # change the name of interface
+       
+        catch "exec pclone exec $node_id2 ip link set $hostIfc2 name $ifname2"
+         #MAC adresse 
+        catch "exec pclone exec $node_id2 ip link set $ifname2 address $ether2"
+        
+	# activate ethernet interface of namespace node 
+       
+        catch "exec pclone exec $node_id2 ip link set $ifname2 up"
+    
+    }
     NAMESPACE-DYNAMIPS {
 
 
@@ -1696,6 +1962,39 @@ WIFIAP-DYNAMIPS {
     
     } 
 
+    NAMESPACECLONE-DYNAMIPS {
+
+
+       # set hostIfc1 "veth.$ifname1.$lnode1.$eid"
+       # set hostIfc2 "veth.$lnode1.$lnode2.$eid"
+       set hostIfc1 "$eid-$ifname1-$lnode1"
+       set hostIfc2 "$eid-$lnode1-$lnode2"
+      
+    
+
+        exec ip link add name "$hostIfc1" type veth peer name "$hostIfc2"
+	
+        exec ip link set dev $hostIfc2 up
+        
+        verifierFichier_Dynamips $lnode2
+        
+        set fp [open "$dynacurdir/Dynamips/$eid/node/$lnode2.txt" a]
+        puts $fp "$ifname2 = NIO_linux_eth:$hostIfc2"
+        close $fp
+
+        
+    
+        exec ip link set "$hostIfc1" netns $node_id1  
+            
+        # change the name of interface
+        catch "exec pclone exec $node_id1 ip link set $hostIfc1 name $ifname1" 
+        #MAC adresse 
+        catch "exec pclone exec $node_id1 ip link set $ifname1 address $ether1"
+        # activate ethernet interface of namespaceclone node      
+        catch "exec pclone exec $node_id1 ip link set $ifname1 up"
+    
+    
+    }
     NETGRAPH-DYNAMIPS {
 	# the case of netgraph with dynamips
 	# we call fonction which add node to bridge
@@ -1790,7 +2089,29 @@ proc startIfcsNodeN { node } {
         set cmds "$cmds\n ip netns exec $node_id1  ip link set dev $tmpifc mtu $mtu"
     }
     }
-
+    puts $cmds
+    exec sh << $cmds
+}
+# modification for namespace Pclone by adding new function
+# activate all interface and give a mtu to namespaceclone node using pclone
+proc startIfcsNodeNP { node } {
+    puts $node
+    upvar 0 ::cf::[set ::curcfg]::eid eid
+    set node_id1 "$eid.$node"
+    set cmds ""
+    foreach ifc [allIfcList $node] {
+    set mtu [getIfcMTU $node $ifc]
+    set tmpifc $ifc
+    if { $ifc == "lo0" } {
+        set tmpifc lo
+    }
+    if {[getIfcOperState $node $ifc] == "up"} {
+        set cmds "$cmds\n pclone exec $node_id1 ip link set dev $tmpifc up mtu $mtu"
+    } else {
+        set cmds "$cmds\n pclone exec $node_id1  ip link set dev $tmpifc mtu $mtu"
+    }
+    }
+    puts $cmds
     exec sh << $cmds
 }
 
@@ -1885,6 +2206,23 @@ proc runConfOnNodeN { node } {
     foreach {commande} $bootcfg {
      if {$commande != ""} {
 		catch "exec ip netns exec $node_id1 $commande"
+     } 
+    }
+
+}
+# modification for namespaceclone by adding new function
+# run configuration on namespaceclone node
+proc runConfOnNodeNP { node } {
+
+
+    upvar 0 ::cf::[set ::curcfg]::eid eid
+    global execMode
+    set node_id1 "$eid.$node"
+    catch "exec pclone exec $node_id1 ip a flush dev lo"
+    set bootcfg [[typemodel $node].cfggen $node]
+    foreach {commande} $bootcfg {
+     if {$commande != ""} {
+		catch "exec pclone exec $node_id1 $commande"
      } 
     }
 
@@ -2374,6 +2712,44 @@ proc addNodeIfcToBridgeN { bridge brifc node ifc mac } {
 
 
 
+}
+# modification for namespace by adding new function
+# this function connects namespace node with bridge
+proc addNodeIfcToBridgeNP { bridge brifc node ifc mac } {
+    upvar 0 ::cf::[set ::curcfg]::eid eid
+    set node_id1 "$eid.$node"
+    set adresse [getIfcIPv4addr $node $ifc]
+
+    # generate interface names
+       set hostIfc "$eid-$bridge-$brifc"
+     #  set hostIfc2 "veth.$ifc.$node.$eid"
+       set hostIfc2 "$eid-$ifc-$node"
+    # create veth pair  (delete it first if it exists)
+    catch "exec ip link del $hostIfc"
+    exec ip link add name "$hostIfc" type veth peer name "$hostIfc2"
+
+   # create bridge
+
+    catch "exec ovs-vsctl add-br $eid-$bridge"
+    catch "exec ovs-vsctl set bridge $eid-$bridge stp_enable=true"
+
+  # add host side of veth pair to bridge
+    catch "exec ovs-vsctl add-port $eid-$bridge $hostIfc"
+
+    exec ip link set "$hostIfc" up
+
+
+    exec ip link set "$hostIfc2" netns $node_id1  
+#Pclone
+        catch "exec pclone exec $node_id1 ip link set $hostIfc2 name $ifc"
+
+       # MAC address Namespace
+
+       catch "exec pclone exec $node_id1 ip link set $ifc address $mac"
+   #     catch "exec ip netns exec $node ip addr add $adresse dev $ifc"
+        catch "exec pclone exec $node_id1 ip link set $ifc up"       
+    #    catch "exec ip netns exec $node ip -6 addr add ::1/128 dev lo"       
+    #    catch "exec ip netns exec $node ip -6 addr add fc00:1::10/64 dev $ifc"
 }
 
 # modification for cisco router by adding new function

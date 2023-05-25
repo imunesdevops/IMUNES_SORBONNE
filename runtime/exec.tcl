@@ -923,9 +923,14 @@ set type [nodeType $node]
 if {$type == "routeur"} {
 
 	runConfOnNodeR $node
-} elseif {$type == "pcn" || $type == "pclone"} {
+} elseif {$type == "pcn"} {
     startIfcsNodeN $node 
     runConfOnNodeN $node
+
+} elseif {$type == "pclone"} {
+    startIfcsNodeNP $node 
+    runConfOnNodeNP $node
+
 } elseif {$type == "wifiAP"} {
     runConfOnNodeAP $node
     startIfcsNodeN $node 
@@ -1087,6 +1092,11 @@ if {$type == "pcn"} {
 
 
 }
+if {$type == "pclone"} {
+[typemodel $node].instantiate $eid $node
+
+
+}
 #Modification for wifi
 if {$type == "wifiAP"} {
 [typemodel $node].instantiate $eid $node
@@ -1101,7 +1111,7 @@ if {$type == "wifiSTA"} {
 }
 
 
-if {$type != "pseudo"  && $type != "pcn" && $type != "wifiAP" && $type != "wifiSTA"} {
+if {$type != "pseudo"  && $type != "pclone" && $type != "pcn" && $type != "wifiAP" && $type != "wifiSTA"} {
 	    [typemodel $node].instantiate $eid $node
 	    pipesExec ""
 	} else {
@@ -1170,7 +1180,9 @@ if {$type != "pseudo"  && $type != "pcn" && $type != "wifiAP" && $type != "wifiS
 set type [nodeType $lnode1]
 set type2 [nodeType $lnode2]
 if {$type != "pcn" && $type2 != "pcn"} {
-	configureLinkBetween $lnode1 $lnode2 $ifname1 $ifname2 $link
+	if {$type != "pclone" && $type2 != "pclone"} {
+		configureLinkBetween $lnode1 $lnode2 $ifname1 $ifname2 $link
+	}
 }
 
 

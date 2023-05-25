@@ -41,6 +41,109 @@ proc ApplyBatchToGUI { } {
 
 	    set type [nodeType $node]
 
+	    # Save the batch modifications for the PC Namespaces
+              if { $type == "pclone" && $oper_mode == "exec"} {
+
+		
+				
+		#**************************************		
+		# changer l'adresse ip de l'interface
+		#**************************************
+			foreach ifc [ifcList $node] {			
+				# retrive ipv4 address
+				
+				set netconf ""
+				catch { set netconf [exec pclone exec $eid.$node ifconfig $ifc | grep inet ] }	
+				
+				if { $netconf != "" } {
+
+					regexp { [0-9]+\.[0-9]+\.[0-9]+\.[0-9]+ } $netconf ip
+					set ipx [string trim $ip]
+
+				}
+				
+				#retrive mask
+				set mask ""
+				catch { set mask [exec pclone exec $eid.$node ifconfig $ifc | grep netmask ] }
+
+
+				
+				if { $mask != "" } {
+                                    set mask1 [lindex $mask 3]
+
+				    set binairemask [dec2bin $mask1]
+				   
+			            set num [cidr $binairemask]
+                                    
+			     }
+			     
+			     #change the ip address and show on link
+			     if {$netconf != 0 && $mask != "" } { 
+					 set var "$ipx/$num"
+					 setIfcIPv4addr $node $ifc "$var" 
+				}  
+
+                        
+                             # Add the MAC address in .imn file
+
+			
+				set macconf ""
+				set MAC ""
+				catch { set macconf [exec pclone exec $eid.$node ifconfig $ifc | grep ether | cut -c15-32 		     	  					] }							
+			      
+				if { $macconf != "" } {
+                               
+					set MAC [string trim $macconf]
+
+			        
+					setIfcMACaddr $node $ifc $MAC
+					
+				}
+			
+			#retrive the ipv6 address and show on link
+			set netconfpc [exec pclone exec $eid.$node ip addr show $ifc | grep inet6 ] 
+			set listconfpc [split $netconfpc "\n"]
+			set listconfpc1 [split $listconfpc " "]
+			set ipv6pc [lindex $listconfpc1 5]
+			set varpc "$ipv6pc"
+			setIfcIPv6addr $node $ifc "$varpc"
+			}
+			
+
+
+		        # Retrive the default route
+			set res ""
+			catch { set res [ exec pclone exec $eid.$node netstat -nr | grep ^0.0.0.0 ] }
+			if { $res != "" } {
+				catch {regexp { [0-9]+\.[0-9]+\.[0-9]+\.[0-9]+ } $res val}
+			#retirer les espaces
+				set addr [string trim $val]
+			#modifier la section de la route dans le fichier
+				set section {}
+				set defaut "0.0.0.0/0"
+				set RouteDef "$defaut $addr"
+			#Ressembre à setStatIPv4routes $node $RouteDef
+				netconfClearSection $node "ip route [lindex [getStatIPv4routes $node] 0]"
+				lappend section "ip route $RouteDef"
+				netconfInsertSection $node $section }	
+
+				# Retrive the default route IPv6
+			        set res ""
+			        catch { set res [ exec ip netns exec $eid.$node ip -6 r show | grep  default] }
+			        if { $res != "" } {
+				set default [lindex $res 2]
+			        #retirer les espaces
+				set addr [string trim $default]
+		         	#modifier la section de la route dans le fichier
+				set section {}
+				set defaut "::/0"
+				set RouteDef "$defaut $addr"
+			        #Ressembre à setStatIPv6routes $node $RouteDef
+				netconfClearSection $node "ipv6 route [lindex [getStatIPv6routes $node] 0]"
+				lappend section "ipv6 route $RouteDef"
+				netconfInsertSection $node $section }
+		}
+
             # Save the batch modifications for the PC docker
 	    if { $type == "pc" && $oper_mode == "exec" } {
 
@@ -291,7 +394,7 @@ proc ApplyBatchToGUI { } {
 			}
 
             # Save the batch modifications for the PC Namespaces
-              if { $type == "pcn" || $type == "pclone" && $oper_mode == "exec"} {
+              if { $type == "pcn" && $oper_mode == "exec"} {
 
 		
 				
@@ -392,6 +495,7 @@ proc ApplyBatchToGUI { } {
 				lappend section "ipv6 route $RouteDef"
 				netconfInsertSection $node $section }
 		}
+	
 
             # Save the batch modifications for the router QUAGGA
 
@@ -776,8 +880,112 @@ if {[file exist "$dynacurdir/Dynamips/$eid/lab/config_routeur_$nom_cisco"] == 1}
 
 			}
 
+	    # Save the batch modifications for the PC Pclone Namespaces
+              if { $type == "pclone" && $oper_mode == "exec" } {
+
+		
+				
+		#**************************************		
+		# changer l'adresse ip de l'interface
+		#**************************************
+			foreach ifc [ifcList $node] {			
+				# retrive ipv4 address
+				
+				set netconf ""
+				catch { set netconf [exec pclone exec $eid.$node ifconfig $ifc | grep inet ] }	
+				
+				if { $netconf != "" } {
+
+					regexp { [0-9]+\.[0-9]+\.[0-9]+\.[0-9]+ } $netconf ip
+					set ipx [string trim $ip]
+
+				}
+				
+				#retrive mask
+				set mask ""
+				catch { set mask [exec pclone exec $eid.$node ifconfig $ifc | grep netmask ] }
+
+
+				
+				if { $mask != "" } {
+                                    set mask1 [lindex $mask 3]
+
+				    set binairemask [dec2bin $mask1]
+				   
+			            set num [cidr $binairemask]
+                                    
+			     }
+			     
+			     #change the ip address and show on link
+			     if {$netconf != 0 && $mask != "" } { 
+					 set var "$ipx/$num"
+					 setIfcIPv4addr $node $ifc "$var" 
+				}  
+
+                        
+                             # Add the MAC address in .imn file
+
+			
+				set macconf ""
+				set MAC ""
+				catch { set macconf [exec pclone exec $eid.$node ifconfig $ifc | grep ether | cut -c15-32 		     	  					] }							
+			      
+				if { $macconf != "" } {
+                               
+					set MAC [string trim $macconf]
+
+			        
+					setIfcMACaddr $node $ifc $MAC
+					
+				}
+			
+			#retrive the ipv6 address and show on link
+			set netconfpc [exec pclone exec $eid.$node ip addr show $ifc | grep inet6 ] 
+			set listconfpc [split $netconfpc "\n"]
+			set listconfpc1 [split $listconfpc " "]
+			set ipv6pc [lindex $listconfpc1 5]
+			set varpc "$ipv6pc"
+			setIfcIPv6addr $node $ifc "$varpc"
+			}
+			
+
+
+		        # Retrive the default route
+			set res ""
+			catch { set res [ exec pclone exec $eid.$node netstat -nr | grep ^0.0.0.0 ] }
+			if { $res != "" } {
+				catch {regexp { [0-9]+\.[0-9]+\.[0-9]+\.[0-9]+ } $res val}
+			#retirer les espaces
+				set addr [string trim $val]
+			#modifier la section de la route dans le fichier
+				set section {}
+				set defaut "0.0.0.0/0"
+				set RouteDef "$defaut $addr"
+			#Ressembre à setStatIPv4routes $node $RouteDef
+				netconfClearSection $node "ip route [lindex [getStatIPv4routes $node] 0]"
+				lappend section "ip route $RouteDef"
+				netconfInsertSection $node $section }	
+
+				# Retrive the default route IPv6
+			        set res ""
+			        catch { set res [ exec ip netns exec $eid.$node ip -6 r show | grep  default] }
+			        if { $res != "" } {
+				set default [lindex $res 2]
+			        #retirer les espaces
+				set addr [string trim $default]
+		         	#modifier la section de la route dans le fichier
+				set section {}
+				set defaut "::/0"
+				set RouteDef "$defaut $addr"
+			        #Ressembre à setStatIPv6routes $node $RouteDef
+				netconfClearSection $node "ipv6 route [lindex [getStatIPv6routes $node] 0]"
+				lappend section "ipv6 route $RouteDef"
+				netconfInsertSection $node $section }
+		}
+
+
             # Save the batch modifications for the PC Namespaces
-              if { $type == "pcn" || $type == "pclone" && $oper_mode == "exec" } {
+              if { $type == "pcn" && $oper_mode == "exec" } {
 
 		
 				
